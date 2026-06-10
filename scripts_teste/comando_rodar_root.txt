@@ -1,0 +1,1 @@
+sudo "/home/peri/Área de trabalho/Cerebro_robo_autonomo/coppelia/bin/python3" input_teclado.py
