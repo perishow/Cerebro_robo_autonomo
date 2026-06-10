@@ -1,0 +1,1 @@
+source coppelia/bin/activate
