@@ -112,20 +112,21 @@ class Grafo:
 # Exemplo de Uso
 # ==========================================
 
-meu_grafo = Grafo(direcionado=False)
+if __name__ == "__main__":
+    meu_grafo = Grafo(direcionado=False)
 
-# Adicionando conexões e já definindo se estão livres ou com entulho
-meu_grafo.adicionar_conexao("A", "B", status="livre")
-meu_grafo.adicionar_conexao("A", "C", status="com entulho")
-meu_grafo.adicionar_conexao("B", "D", status="livre")
-meu_grafo.adicionar_conexao("C", "D", status="livre")
+    # Adicionando conexões e já definindo se estão livres ou com entulho
+    meu_grafo.adicionar_conexao("A", "B", status="livre")
+    meu_grafo.adicionar_conexao("A", "C", status="com entulho")
+    meu_grafo.adicionar_conexao("B", "D", status="livre")
+    meu_grafo.adicionar_conexao("C", "D", status="livre")
 
-# Simulando uma travessia: mudando o status dos nós para visitado
-meu_grafo.atualizar_status_no("A", "visitado")
-meu_grafo.atualizar_status_no("B", "visitado")
+    # Simulando uma travessia: mudando o status dos nós para visitado
+    meu_grafo.atualizar_status_no("A", "visitado")
+    meu_grafo.atualizar_status_no("B", "visitado")
 
-# Exibindo
-print("Estrutura do Grafo:")
-meu_grafo.mostrar_grafo()
+    # Exibindo
+    print("Estrutura do Grafo:")
+    meu_grafo.mostrar_grafo()
 
-meu_grafo.display()
+    meu_grafo.display()

@@ -1,4 +1,3 @@
 sudo "/home/peri/Área de trabalho/Cerebro_robo_autonomo/coppelia/bin/python3" input_teclado.py
 
-sudo "/home/peri/Área de traba
-lho/Cerebro_robo_autonomo/coppelia/bin/python3" -m movimento_autonomo.cerebro_foda
+sudo "/home/peri/Área de trabalho/Cerebro_robo_autonomo/coppelia/bin/python3" -m movimento_autonomo.cerebro_foda
