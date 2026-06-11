@@ -33,11 +33,30 @@ class ControladorRobo:
         # 2. Beco sem saída ou tudo visitado ao redor. Precisa recuar (Backtracking)
         print("  -> Decisão: Beco sem saída ou tudo visitado ao redor.")
         if self.pilha_caminho:
-            no_anterior = self.pilha_caminho.pop()
-            print(
-                f"  -> Decisão: Backtracking (retornando) para: {no_anterior}")
-            self.no_atual = no_anterior
-            return no_anterior
+            no_destino = self.pilha_caminho.pop()
+            print(f"  -> Decisão: Backtracking solicitado para: {no_destino}")
+
+            # Checa se a conexão é direta (Duto -> Bueiro)
+            if no_destino in self.mapa.grafo.get(self.no_atual, {}):
+                self.no_atual = no_destino
+                return no_destino
+
+            # Se não for direta (Bueiro -> Bueiro), procura o Duto que liga os dois
+            for duto_intermediario in self.mapa.grafo.get(self.no_atual, {}):
+                if no_destino in self.mapa.grafo.get(duto_intermediario, {}):
+                    print(
+                        f"  -> Caminho indireto: Usando {
+                            duto_intermediario
+                        } para chegar em {no_destino}"
+                    )
+                    # Devolve o destino final pra pilha, pois agora daremos 1 passo até o duto
+                    self.pilha_caminho.append(no_destino)
+                    self.no_atual = duto_intermediario
+                    return duto_intermediario
+
+            # Fallback (Garante que a variável atualiza mesmo em erro)
+            self.no_atual = no_destino
+            return no_destino
 
         # 3. Fim da linha
         print("  -> Decisão: Exploração concluída! Não há mais para onde ir.")
@@ -129,7 +148,8 @@ def bueiro_routine(
 
             print(
                 f"[{no_atual}] Virando o corpo fisicamente para {
-                    proximo_destino} (Ângulo: {angulo_alvo:.2f} rad)..."
+                    proximo_destino
+                } (Ângulo: {angulo_alvo:.2f} rad)..."
             )
             ori = sim.getObjectOrientation(obj_handler, sim.handle_world)
             ori[2] = angulo_alvo
@@ -227,7 +247,8 @@ try:
                     bueiro_atual = bueiro_reconhecido
                     print(
                         f"\n-> [Memória] Local conhecido identificado! Retornando ao {
-                            bueiro_atual}"
+                            bueiro_atual
+                        }"
                     )
                 else:
                     contador_bueiros += 1
@@ -235,7 +256,8 @@ try:
                     coordenadas_bueiros[bueiro_atual] = pos_atual
                     print(
                         f"\n-> [Descoberta] Novo local descoberto e batizado de: {
-                            bueiro_atual}"
+                            bueiro_atual
+                        }"
                     )
 
                 # Conecta o duto de onde veio ao bueiro que acabou de entrar
