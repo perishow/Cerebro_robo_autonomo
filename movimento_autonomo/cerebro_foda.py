@@ -1,6 +1,7 @@
 from coppeliasim_zmqremoteapi_client import RemoteAPIClient
 import time
 import math
+import traceback
 
 from motor_grafo.grafo_modulo import Grafo
 
@@ -20,7 +21,8 @@ class ControladorRobo:
         # 1. Tenta encontrar um caminho inédito e livre
         for vizinho, dados_via in vizinhos.items():
             status_via = dados_via["status"]
-            status_no = self.mapa.nos[vizinho]["status"]
+            # status_no = self.mapa.nos[vizinho]["status"]
+            status_no = self.mapa.nos.get(vizinho, {}).get("status", "não visitado")
 
             if status_via == "livre" and status_no == "não visitado":
                 print(
@@ -103,6 +105,16 @@ def bueiro_routine(
     no_atual = controlador.no_atual
 
     try:
+        # Continua em frente para centralizar no meio do bueiro
+        ori = sim.getObjectOrientation(obj_handler, sim.handle_world)
+        for i in range(9):
+            pos = sim.getObjectPosition(obj_handler, sim.handle_world)
+            pos[0] -= passo_linear * math.sin(ori[2])
+            pos[1] += passo_linear * math.cos(ori[2])
+            sim.setObjectPosition(obj_handler, sim.handle_world, pos)
+            client.step()
+            sim_sleep(sim, client, 0.2)
+        
         print(f"\n--- Rotina de Bueiro Iniciada em: {no_atual} ---")
         ori = sim.getObjectOrientation(obj_handler, sim.handle_world)
 
@@ -158,7 +170,7 @@ def bueiro_routine(
             sim_sleep(sim, client, 0.5)
 
             # Dá os passos iniciais para ENTRAR no duto escolhido
-            for _ in range(3):
+            for _ in range(20):
                 pos = sim.getObjectPosition(obj_handler, sim.handle_world)
                 pos[0] -= passo_linear * math.sin(ori[2])
                 pos[1] += passo_linear * math.cos(ori[2])
@@ -170,7 +182,10 @@ def bueiro_routine(
             sim.stopSimulation()
 
     except KeyboardInterrupt:
-        sim.stopSimulation()
+        try:
+            sim.stopSimulation()
+        except Exception:
+            pass # Ignora se a conexão ZMQ já estiver quebrada pelo Ctrl+C
 
 
 # SETUP INICIAL ===========================================
@@ -178,12 +193,12 @@ client = RemoteAPIClient()
 client.setStepping(True)
 sim = client.require("sim")
 
-passo_linear = 0.05
+passo_linear = 0.1
 estado = "Duto"
 grafo = Grafo()
 
-prox_superior_path = "/Cuboid[0]/proximidade_superior"
-prox_frontal_path = "/Cuboid[0]/proximidade_frontal"
+prox_superior_path = "/Cuboid/proximidade_superior"
+prox_frontal_path = "/Cuboid/proximidade_frontal"
 
 try:
     prox_superior_handle = sim.getObject(prox_superior_path)
@@ -195,6 +210,9 @@ except Exception as e:
 coordenadas_bueiros = {}
 contador_bueiros = 1
 bueiro_inicial = f"Bueiro_{contador_bueiros}"
+controlador = ControladorRobo(grafo, bueiro_inicial)
+
+grafo.adicionar_no(bueiro_inicial)
 controlador = ControladorRobo(grafo, bueiro_inicial)
 
 sim.startSimulation()
@@ -211,7 +229,7 @@ print("Cerebro rodando, o robô vai fazer coisas fodas")
 
 # CAMINHADA INICIAL =======================================
 try:
-    for i in range(3):
+    for i in range(30):
         pos = sim.getObjectPosition(cuboid_handle, sim.handle_world)
         pos[1] += passo_linear
         sim.setObjectPosition(cuboid_handle, sim.handle_world, pos)
@@ -312,6 +330,12 @@ try:
         time.sleep(0.05)
 
 except KeyboardInterrupt:
-    pass
+    print("\n[Sistema] Simulação interrompida pelo usuário (Ctrl+C).")
+except Exception as e:
+    print("\n[ERRO CRÍTICO] O Cérebro deu tela azul:")
+    traceback.print_exc()
 finally:
-    sim.stopSimulation()
+    try:
+        sim.stopSimulation()
+    except Exception:
+        pass # Fecha calado se o ZMQ não deixar
