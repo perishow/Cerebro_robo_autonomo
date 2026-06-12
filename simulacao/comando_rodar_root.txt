@@ -1,5 +1,4 @@
-sudo /home/peri/Área\ de\ trab
-alho/Cerebro_robo_autonomo/coppelia/bin/python -m movimento_autonomo.cerebro_foda
+sudo /home/peri/Área\ de\ trabalho/Cerebro_robo_autonomo/coppelia/bin/python -m movimento_autonomo.cerebro_foda
 
 sudo "/home/administrator/Área de trabalho/
 Cerebro_robo/coppelia/bin/python3" -m movimento_autonomo.cerebro_foda
