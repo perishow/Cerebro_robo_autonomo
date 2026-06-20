@@ -77,6 +77,30 @@ def sim_sleep(sim, client, duration_in_seconds):
 def calcular_distancia(pos1, pos2):
     return math.sqrt((pos1[0] - pos2[0]) ** 2 + (pos1[1] - pos2[1]) ** 2)
 
+def normalizar_angulo(angulo):
+    """Mantém o ângulo entre -pi e +pi para evitar acumular giros."""
+    return math.atan2(math.sin(angulo), math.cos(angulo))
+
+
+def ler_proximidade(sim, sensor_handle):
+    """
+    Retorna uma leitura normalizada do sensor de proximidade.
+
+    result > 0 indica detecção válida.
+    distance é útil para depuração e para futuros refinamentos.
+    """
+    result, distance, _, _, _ = sim.readProximitySensor(sensor_handle)
+    return result, distance
+
+
+def no_eh_duto(no_id):
+    return "Duto" in str(no_id)
+
+def frontal_muito_proximo(result_frontal, distancia_frontal, limite_distancia):
+    """
+    Considera bloqueio apenas quando o frontal detecta algo e a distância é curta.
+    """
+    return result_frontal > 0 and distancia_frontal is not None and distancia_frontal <= limite_distancia
 
 def avalia_duto(frontal_handler, grafo, sim, no_atual, id_destino, angulo_atual):
     sensor_data = sim.readProximitySensor(frontal_handler)
@@ -202,6 +226,95 @@ def bueiro_routine(
     except KeyboardInterrupt:
         raise KeyboardInterrupt
 
+def duto_bloqueado_routine(
+    obj_handler,
+    passo_linear,
+    sim,
+    client,
+    superior_handler,
+    grafo,
+    controlador,
+    passos_centralizacao=9,
+    limite_passos_retorno=500,
+):
+    """
+    Trata bloqueio dentro de um duto.
+
+    Condição esperada: sensor superior detectando duto e sensor frontal detectando obstáculo
+    muito perto.
+    A rotina marca o duto/aresta como bloqueado, gira 180 graus, volta até o bueiro
+    anterior e devolve o controle para a rotina de bueiro continuar a busca.
+    """
+    duto_bloqueado = controlador.no_atual
+
+    if controlador.pilha_caminho:
+        bueiro_anterior = controlador.pilha_caminho.pop()
+    else:
+        bueiro_anterior = None
+
+    print(f"\n[Bloqueio] Frontal muito perto: duto bloqueado detectado em {duto_bloqueado}.")
+
+    # Marca o duto e a conexão de ida como bloqueados no grafo.
+    if duto_bloqueado in grafo.grafo:
+        try:
+            grafo.atualizar_status_no(duto_bloqueado, "bloqueado")
+        except Exception:
+            # A aresta bloqueada já impede nova tentativa, mesmo que o grafo não use status em nós.
+            pass
+
+    if bueiro_anterior:
+        if bueiro_anterior in grafo.grafo and duto_bloqueado in grafo.grafo[bueiro_anterior]:
+            grafo.grafo[bueiro_anterior][duto_bloqueado]["status"] = "bloqueado"
+
+        if duto_bloqueado in grafo.grafo and bueiro_anterior in grafo.grafo[duto_bloqueado]:
+            grafo.grafo[duto_bloqueado][bueiro_anterior]["status"] = "bloqueado"
+
+        print(f"[Bloqueio] Conexão {bueiro_anterior} <--> {duto_bloqueado} marcada como bloqueada.")
+    else:
+        print("[Bloqueio] Não encontrei bueiro anterior na pilha. Não dá para recuar com segurança.")
+        return None
+
+    # Giro físico de 180 graus.
+    ori = sim.getObjectOrientation(obj_handler, sim.handle_world)
+    ori[2] = normalizar_angulo(ori[2] + math.pi)
+    sim.setObjectOrientation(obj_handler, sim.handle_world, ori)
+    client.step()
+    sim_sleep(sim, client, 0.5)
+    print("[Bloqueio] Robô girou 180° e vai retornar ao bueiro anterior.")
+
+    # Anda de volta pelo duto até o sensor superior deixar de detectar o teto do duto.
+    passos = 0
+    while passos < limite_passos_retorno:
+        result_superior = sim.readProximitySensor(superior_handler)[0]
+        if result_superior == 0:
+            break
+
+        pos = sim.getObjectPosition(obj_handler, sim.handle_world)
+        pos[0] -= passo_linear * math.sin(ori[2])
+        pos[1] += passo_linear * math.cos(ori[2])
+        sim.setObjectPosition(obj_handler, sim.handle_world, pos)
+        client.step()
+        sim_sleep(sim, client, 0.2)
+        passos += 1
+
+    if passos >= limite_passos_retorno:
+        print("[Bloqueio] Limite de retorno atingido antes de reencontrar o bueiro anterior.")
+        return None
+
+    # Entrou no bueiro anterior; anda mais um pouco para centralizar.
+    for _ in range(passos_centralizacao):
+        pos = sim.getObjectPosition(obj_handler, sim.handle_world)
+        pos[0] -= passo_linear * math.sin(ori[2])
+        pos[1] += passo_linear * math.cos(ori[2])
+        sim.setObjectPosition(obj_handler, sim.handle_world, pos)
+        client.step()
+        sim_sleep(sim, client, 0.2)
+
+    controlador.no_atual = bueiro_anterior
+    grafo.atualizar_status_no(bueiro_anterior, "visitado")
+
+    print(f"[Bloqueio] Retorno concluído. Robô voltou para {bueiro_anterior} e continuará a busca.")
+    return bueiro_anterior
 
 # SETUP INICIAL ===========================================
 client = RemoteAPIClient()
@@ -215,6 +328,9 @@ is_primeiro_bueiro = True
 bueiro_ja_conhecido = False
 
 grafo = Grafo()
+bloqueio_frontal_consecutivo = 0
+# Ajuste este valor para mudar a distância máxima que caracteriza bloqueio no duto.
+LIMIAR_BLOQUEIO_FRONTAL = 0.40
 
 prox_superior_path = "/Cuboid/proximidade_superior"
 prox_frontal_path = "/Cuboid/proximidade_frontal"
@@ -254,20 +370,61 @@ print("Cérebro rodando! Robô iniciou o mapeamento.")
 try:
     executando = True
     ultimo_snapshot = 0
+
     while executando:
-        sensor_data = sim.readProximitySensor(prox_superior_handle)
-        result_superior = sensor_data[0]
+        result_superior, _ = ler_proximidade(sim, prox_superior_handle)
+        result_frontal, distancia_frontal = ler_proximidade(sim, prox_frontal_handle)
 
         if result_superior > 0:
             estado = "Duto"
+
+            if no_eh_duto(controlador.no_atual) and frontal_muito_proximo(
+                result_frontal,
+                distancia_frontal,
+                LIMIAR_BLOQUEIO_FRONTAL,
+            ):
+                bloqueio_frontal_consecutivo += 1
+            else:
+                bloqueio_frontal_consecutivo = 0
+
+            # Bloqueio real:
+            # só dispara quando o frontal permanecer detectando obstáculo
+            # muito perto por leituras consecutivas enquanto o robô já está em um duto.
+            if bloqueio_frontal_consecutivo >= 2:
+                bueiro_retorno = duto_bloqueado_routine(
+                    cuboid_handle,
+                    passo_linear,
+                    sim,
+                    client,
+                    prox_superior_handle,
+                    grafo,
+                    controlador,
+                )
+
+                if bueiro_retorno is None:
+                    print("[Bloqueio] Falha ao retornar para o bueiro anterior. Encerrando por segurança.")
+                    break
+
+                bueiro_ja_conhecido = True
+                estado = "Bueiro"
+                bloqueio_frontal_consecutivo = 0
+
+                salvar_snapshot_grafo(grafo)
+                ultimo_snapshot = time.time()
+
+                # Importante:
+                # evita continuar esta mesma iteração com leituras antigas dos sensores.
+                continue
+
         elif result_superior == 0:
+            bloqueio_frontal_consecutivo = 0
             if estado == "Duto":
                 print(
                     "\n[Ação] Fim do duto detectado! Andando até o centro geométrico do ambiente..."
                 )
 
-                # NOVO: O robô centraliza primeiro antes de qualquer tomada de decisão
                 ori = sim.getObjectOrientation(cuboid_handle, sim.handle_world)
+
                 for i in range(9):
                     pos = sim.getObjectPosition(cuboid_handle, sim.handle_world)
                     pos[0] -= passo_linear * math.sin(ori[2])
@@ -276,7 +433,6 @@ try:
                     client.step()
                     sim_sleep(sim, client, 0.2)
 
-                # AGORA pegamos a posição oficial
                 pos_atual = sim.getObjectPosition(cuboid_handle, sim.handle_world)
                 bueiro_reconhecido = None
 
@@ -289,11 +445,7 @@ try:
 
                 if bueiro_reconhecido:
                     bueiro_atual = bueiro_reconhecido
-                    print(
-                        f"-> [Memória] Local conhecido identificado! Nós estamos no {
-                            bueiro_atual
-                        }"
-                    )
+                    print(f"-> [Memória] Local conhecido identificado! Nós estamos no {bueiro_atual}")
                     bueiro_ja_conhecido = True
                 else:
                     contador_bueiros += 1
@@ -302,28 +454,29 @@ try:
                     print(f"-> [Descoberta] Novo local descoberto: {bueiro_atual}")
                     bueiro_ja_conhecido = False
 
-                # Garante que o nó exista antes de marcar como visitado.
                 if bueiro_atual not in grafo.grafo:
                     grafo.adicionar_no(bueiro_atual)
 
-                # Garante que o grafo saiba que o robô pisou lá fisicamente.
                 grafo.atualizar_status_no(bueiro_atual, "visitado")
 
-                # (O restante do código continua igual abaixo dessa linha...)
-                grafo.adicionar_conexao(duto_anterior, bueiro_atual, status="livre")
+                grafo.adicionar_conexao(
+                    duto_anterior,
+                    bueiro_atual,
+                    status="livre"
+                )
 
                 ori_atual = sim.getObjectOrientation(cuboid_handle, sim.handle_world)
                 angulo_de_volta = ori_atual[2] + math.pi
 
-                if bueiro_atual not in grafo.grafo:
-                    grafo.adicionar_no(bueiro_atual)
                 if duto_anterior not in grafo.grafo[bueiro_atual]:
                     grafo.grafo[bueiro_atual][duto_anterior] = {"status": "livre"}
 
                 grafo.grafo[bueiro_atual][duto_anterior]["angulo"] = angulo_de_volta
+
                 controlador.no_atual = bueiro_atual
 
             estado = "Bueiro"
+
         else:
             print("Erro Crítico no Sensor Superior!")
             break
@@ -351,24 +504,31 @@ try:
                 executando = False
 
         client.step()
+
         agora = time.time()
         if agora - ultimo_snapshot >= 0.5:
             salvar_snapshot_grafo(grafo)
             ultimo_snapshot = agora
+
         time.sleep(0.05)
 
 except KeyboardInterrupt:
     print("\n[Sistema] Simulação interrompida pelo usuário (Ctrl+C).")
+
 except Exception as e:
     print("\n[ERRO CRÍTICO] O Cérebro deu tela azul:")
     traceback.print_exc()
+
 finally:
     print("\n[Sistema] Finalizando simulação no CoppeliaSim...")
+
     try:
         sim.stopSimulation()
     except Exception:
         pass
+
     salvar_snapshot_grafo(grafo)
+
     if visualizador:
         visualizador.parar()
 
