@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mapa do Robo</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <button id="toggle-chrome" class="chrome-toggle" type="button">
+        Ocultar painéis
+      </button>
+      <header class="topbar">
+        <div>
+          <h1>Mapa da rede</h1>
+          <p id="connection-status">Conectando ao cerebro...</p>
+        </div>
+        <section class="metrics" aria-label="Resumo do grafo">
+          <div>
+            <span id="node-count">0</span>
+            <small>Nos</small>
+          </div>
+          <div>
+            <span id="edge-count">0</span>
+            <small>Conexoes</small>
+          </div>
+          <div>
+            <span id="visited-count">0</span>
+            <small>Visitados</small>
+          </div>
+        </section>
+      </header>
+
+      <section class="workspace">
+        <aside class="sidebar" aria-label="Legenda">
+          <h2>Legenda</h2>
+          <div class="legend-row">
+            <span class="swatch bueiro"></span>
+            <span>Bueiro</span>
+          </div>
+          <div class="legend-row">
+            <span class="line livre"></span>
+            <span>Duto livre</span>
+          </div>
+          <div class="legend-row">
+            <span class="line bloqueada"></span>
+            <span>Duto bloqueado</span>
+          </div>
+
+          <div class="controls">
+            <button id="fit-view" type="button">Centralizar</button>
+            <button id="reset-pins" type="button">Soltar nos</button>
+          </div>
+        </aside>
+
+        <section class="canvas-shell" aria-label="Visualizacao do grafo">
+          <svg id="graph" role="img" aria-label="Grafo mapeado pelo robo">
+            <g id="viewport">
+              <g id="edges"></g>
+              <g id="nodes"></g>
+            </g>
+          </svg>
+        </section>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

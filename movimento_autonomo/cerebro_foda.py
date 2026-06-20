@@ -1,9 +1,14 @@
 from coppeliasim_zmqremoteapi_client import RemoteAPIClient
+import os
 import time
 import math
 import traceback
 
 from motor_grafo.grafo_modulo import Grafo
+from motor_grafo.servidor_visualizacao import (
+    ServidorVisualizacaoGrafo,
+    salvar_snapshot_grafo,
+)
 
 
 class ControladorRobo:
@@ -226,6 +231,12 @@ bueiro_inicial = f"Bueiro_{contador_bueiros}"
 
 grafo.adicionar_no(bueiro_inicial)
 controlador = ControladorRobo(grafo, bueiro_inicial)
+salvar_snapshot_grafo(grafo)
+
+visualizador = None
+if os.environ.get("VISUALIZADOR_SEPARADO") != "1":
+    visualizador = ServidorVisualizacaoGrafo(grafo)
+    visualizador.iniciar()
 
 sim.startSimulation()
 cuboid_handle = sim.getObject("/Cuboid")
@@ -242,6 +253,7 @@ print("Cérebro rodando! Robô iniciou o mapeamento.")
 # LOOP PRINCIPAL ==============================================
 try:
     executando = True
+    ultimo_snapshot = 0
     while executando:
         sensor_data = sim.readProximitySensor(prox_superior_handle)
         result_superior = sensor_data[0]
@@ -290,7 +302,11 @@ try:
                     print(f"-> [Descoberta] Novo local descoberto: {bueiro_atual}")
                     bueiro_ja_conhecido = False
 
-                # CORREÇÃO: Garante que o grafo saiba que o robô pisou lá fisicamente
+                # Garante que o nó exista antes de marcar como visitado.
+                if bueiro_atual not in grafo.grafo:
+                    grafo.adicionar_no(bueiro_atual)
+
+                # Garante que o grafo saiba que o robô pisou lá fisicamente.
                 grafo.atualizar_status_no(bueiro_atual, "visitado")
 
                 # (O restante do código continua igual abaixo dessa linha...)
@@ -335,6 +351,10 @@ try:
                 executando = False
 
         client.step()
+        agora = time.time()
+        if agora - ultimo_snapshot >= 0.5:
+            salvar_snapshot_grafo(grafo)
+            ultimo_snapshot = agora
         time.sleep(0.05)
 
 except KeyboardInterrupt:
@@ -348,6 +368,9 @@ finally:
         sim.stopSimulation()
     except Exception:
         pass
+    salvar_snapshot_grafo(grafo)
+    if visualizador:
+        visualizador.parar()
 
     print("\n" + "=" * 50)
     print("       MAPA FINAL DA EXPLORAÇÃO (GRAFO RESULTANTE)       ")

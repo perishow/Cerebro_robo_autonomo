@@ -54,6 +54,57 @@ class Grafo:
         else:
             print(f"Aviso: A conexão entre '{origem}' e '{destino}' não existe.")
 
+    def to_dict(self):
+        """
+        Exporta o grafo em um formato simples para APIs/front-ends.
+        """
+        arestas = []
+        conexoes = []
+        arestas_exportadas = set()
+
+        for origem, destinos in self.grafo.items():
+            for destino, dados in destinos.items():
+                conexoes.append(
+                    {
+                        "origem": origem,
+                        "destino": destino,
+                        "status": dados.get("status", "desconhecido"),
+                        "angulo": dados.get("angulo"),
+                    }
+                )
+
+                if self.direcionado:
+                    chave_aresta = (origem, destino)
+                else:
+                    chave_aresta = frozenset((origem, destino))
+
+                if chave_aresta in arestas_exportadas:
+                    continue
+
+                arestas_exportadas.add(chave_aresta)
+                arestas.append(
+                    {
+                        "origem": origem,
+                        "destino": destino,
+                        "status": dados.get("status", "desconhecido"),
+                        "angulo": dados.get("angulo"),
+                    }
+                )
+
+        return {
+            "direcionado": self.direcionado,
+            "nos": [
+                {
+                    "id": no,
+                    "status": dados.get("status", "desconhecido"),
+                    "tipo": "duto" if "Duto" in str(no) else "bueiro",
+                }
+                for no, dados in self.nos.items()
+            ],
+            "arestas": arestas,
+            "conexoes": conexoes,
+        }
+
     def mostrar_grafo(self):
         """
         Imprime o grafo mostrando os status dos nós e conexões.

@@ -17,3 +17,13 @@ sudo /home/peri/Área\ de\ trabalho/Cerebro_robo_autonomo/coppelia/bin/python -m
 
 Ao executar o script a simulação deve iniciar sozinha e o robô deve caminhar livre e petulante pelsa fronteiras da
 aventura.
+
+Rodar servidor de visualização:
+
+python3 -m motor_grafo.servidor_visualizacao
+
+Rodar simulação sem servidor embutido:
+
+sudo env VISUALIZADOR_SEPARADO=1 \
+/home/peri/Área\ de\ trabalho/Cerebro_robo_autonomo/coppelia/bin/python \
+-m movimento_autonomo.cerebro_foda

@@ -1,0 +1,304 @@
+:root {
+  color-scheme: light;
+  --bg: #f4f1ea;
+  --panel: #ffffff;
+  --ink: #20242a;
+  --muted: #667085;
+  --border: #d7dce2;
+  --bueiro: #1f7a8c;
+  --duto: #b7791f;
+  --visitado: #2f855a;
+  --bloqueada: #b42318;
+  --edge: #56616f;
+  --surface: #eef3f6;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--ink);
+  background: var(--bg);
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+}
+
+.app {
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  position: relative;
+}
+
+.chrome-toggle {
+  position: fixed;
+  bottom: 14px;
+  right: 14px;
+  z-index: 20;
+  height: 34px;
+  padding: 0 12px;
+  background: #ffffff;
+}
+
+.topbar {
+  min-height: 84px;
+  padding: 16px 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: 22px;
+  line-height: 1.15;
+  font-weight: 720;
+}
+
+h2 {
+  font-size: 14px;
+  margin-bottom: 14px;
+}
+
+#connection-status {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(82px, 1fr));
+  gap: 10px;
+}
+
+.metrics div {
+  min-width: 82px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.metrics span {
+  display: block;
+  font-size: 20px;
+  font-weight: 720;
+}
+
+.metrics small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.workspace {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 220px 1fr;
+}
+
+.sidebar {
+  padding: 18px;
+  background: #fbfcfd;
+  border-right: 1px solid var(--border);
+}
+
+.legend-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 30px;
+  color: #303741;
+  font-size: 14px;
+}
+
+.swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+.swatch.bueiro {
+  background: var(--bueiro);
+}
+
+.line {
+  width: 24px;
+  height: 9px;
+  border-radius: 3px;
+}
+
+.line.livre {
+  background: var(--edge);
+}
+
+.line.bloqueada {
+  background: var(--bloqueada);
+}
+
+.controls {
+  display: grid;
+  gap: 8px;
+  margin-top: 22px;
+}
+
+button {
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--ink);
+  background: #ffffff;
+  font: inherit;
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: #98a2b3;
+  background: #f8fafc;
+}
+
+.canvas-shell {
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(#d9e0e7 1px, transparent 1px),
+    linear-gradient(90deg, #d9e0e7 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+.chrome-collapsed .topbar,
+.chrome-collapsed .sidebar {
+  display: none;
+}
+
+.chrome-collapsed .app {
+  grid-template-rows: 1fr;
+}
+
+.chrome-collapsed .workspace {
+  grid-template-columns: 1fr;
+}
+
+.chrome-collapsed .canvas-shell {
+  min-height: 100vh;
+}
+
+.chrome-collapsed .chrome-toggle {
+  background: #f8fafc;
+  border-color: #98a2b3;
+}
+
+#graph {
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+}
+
+.edge-pipe-outer {
+  fill: none;
+  stroke: #2f3742;
+  stroke-width: 28;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+}
+
+.edge-pipe-inner {
+  fill: none;
+  stroke: var(--edge);
+  stroke-width: 20;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+}
+
+.edge-pipe-inner.bloqueada {
+  stroke: var(--bloqueada);
+  stroke-dasharray: 18 12;
+}
+
+.edge-label {
+  fill: #475467;
+  font-size: 11px;
+  paint-order: stroke;
+  stroke: #ffffff;
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+
+.node rect {
+  stroke: #ffffff;
+  stroke-width: 3;
+  filter: drop-shadow(0 2px 3px rgb(16 24 40 / 0.18));
+}
+
+.node.bueiro rect {
+  fill: var(--bueiro);
+}
+
+.node.visitado rect {
+  stroke: var(--visitado);
+  stroke-width: 5;
+}
+
+.node text {
+  fill: var(--ink);
+  font-size: 12px;
+  font-weight: 650;
+  text-anchor: middle;
+  paint-order: stroke;
+  stroke: #ffffff;
+  stroke-width: 5px;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+@media (max-width: 760px) {
+  .topbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .workspace {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+
+  .sidebar {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 16px;
+  }
+
+  .sidebar h2,
+  .controls {
+    grid-column: 1 / -1;
+  }
+
+  .controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: 6px;
+  }
+
+  .chrome-toggle {
+    top: 10px;
+    right: 10px;
+  }
+}
