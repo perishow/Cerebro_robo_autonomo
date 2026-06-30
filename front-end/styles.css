@@ -268,6 +268,65 @@ button:hover {
   pointer-events: none;
 }
 
+/* Painel de foto de bloqueio */
+.foto-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgb(0 0 0 / 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.foto-panel.hidden {
+  display: none;
+}
+
+.foto-panel-inner {
+  position: relative;
+  background: var(--panel);
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 520px;
+  width: 90%;
+  box-shadow: 0 8px 32px rgb(0 0 0 / 0.28);
+}
+
+.foto-panel-inner h3 {
+  margin: 0 0 14px;
+  font-size: 15px;
+  color: var(--bloqueada);
+}
+
+.foto-panel-inner img {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  display: block;
+}
+
+.foto-fechar {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 14px;
+  line-height: 1;
+}
+
+/* Dutos com foto ficam clicáveis no SVG */
+.pipe-clicavel {
+  cursor: pointer;
+}
+
+.pipe-clicavel:hover .edge-pipe-inner {
+  stroke-width: 24;
+}
+
 @media (max-width: 760px) {
   .topbar {
     align-items: stretch;

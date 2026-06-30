@@ -7,6 +7,11 @@ const nodeCountEl = document.querySelector("#node-count");
 const edgeCountEl = document.querySelector("#edge-count");
 const visitedCountEl = document.querySelector("#visited-count");
 const toggleChromeBtn = document.querySelector("#toggle-chrome");
+const fotoPanel = document.querySelector("#foto-panel");
+const fotoImg = document.querySelector("#foto-img");
+const fotoTitulo = document.querySelector("#foto-titulo");
+document.querySelector("#foto-fechar").addEventListener("click", () => fotoPanel.classList.add("hidden"));
+fotoPanel.addEventListener("click", (e) => { if (e.target === fotoPanel) fotoPanel.classList.add("hidden"); });
 
 const state = {
   nodes: new Map(),
@@ -329,9 +334,23 @@ function render() {
 
     const pipeInner = document.createElementNS("http://www.w3.org/2000/svg", "path");
     pipeInner.classList.add("edge-pipe-inner");
-    if (pipe.status !== "livre") pipeInner.classList.add("bloqueada");
+    const bloqueado = pipe.status !== "livre";
+    if (bloqueado) pipeInner.classList.add("bloqueada");
     pipeInner.setAttribute("d", pathData);
     group.append(pipeInner);
+
+    if (bloqueado) {
+      const fotoNo = state.rawGraph?.nos?.find((n) => n.id === pipe.duto && n.foto);
+      if (fotoNo) {
+        group.classList.add("pipe-clicavel");
+        group.addEventListener("click", (e) => {
+          e.stopPropagation();
+          fotoTitulo.textContent = `Obstrução em ${fotoNo.id}`;
+          fotoImg.src = `/fotos/${fotoNo.foto}?t=${Date.now()}`;
+          fotoPanel.classList.remove("hidden");
+        });
+      }
+    }
 
     edgeLayer.append(group);
   }

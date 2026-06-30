@@ -9,6 +9,7 @@ from pathlib import Path
 ROOT_PROJETO = Path(__file__).resolve().parents[1]
 FRONTEND_DIR = ROOT_PROJETO / "front-end"
 GRAFO_JSON_PADRAO = FRONTEND_DIR / "grafo_atual.json"
+FOTOS_DIR = ROOT_PROJETO / "fotos"
 GRAFO_VAZIO = {"direcionado": False, "nos": [], "arestas": []}
 
 
@@ -53,6 +54,25 @@ class ServidorVisualizacaoGrafo:
                     return
 
                 caminho = self.path.split("?", 1)[0]
+
+                if caminho.startswith("/fotos/"):
+                    nome_arquivo = caminho[len("/fotos/"):]
+                    foto = (FOTOS_DIR / nome_arquivo).resolve()
+                    try:
+                        foto.relative_to(FOTOS_DIR.resolve())
+                    except ValueError:
+                        self.send_error(403)
+                        return
+                    if not foto.is_file():
+                        self.send_error(404)
+                        return
+                    conteudo = foto.read_bytes()
+                    self.send_response(200)
+                    self.send_header("Content-Type", "image/png")
+                    self.send_header("Content-Length", str(len(conteudo)))
+                    self.end_headers()
+                    self.wfile.write(conteudo)
+                    return
                 if caminho in ("", "/"):
                     caminho = "/index.html"
 

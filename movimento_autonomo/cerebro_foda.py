@@ -3,12 +3,51 @@ import os
 import time
 import math
 import traceback
+import struct
 
 from motor_grafo.grafo_modulo import Grafo
 from motor_grafo.servidor_visualizacao import (
     ServidorVisualizacaoGrafo,
     salvar_snapshot_grafo,
+    FOTOS_DIR,
 )
+
+def capturar_foto(sim, camera_handle, nome_duto):
+    """Captura imagem do Vision Sensor e salva como PNG na pasta fotos/."""
+    try:
+        img, [w, h] = sim.getVisionSensorImg(camera_handle)
+        # img é bytes RGB row-major; precisa inverter verticalmente (OpenGL origin)
+        row_size = w * 3
+        rows = [img[i * row_size:(i + 1) * row_size] for i in range(h)]
+        rows.reverse()
+        pixels = b"".join(rows)
+
+        # Escreve PNG mínimo sem dependências externas
+        import zlib, struct
+
+        def png_chunk(chunk_type, data):
+            c = chunk_type + data
+            return struct.pack(">I", len(data)) + c + struct.pack(">I", zlib.crc32(c) & 0xFFFFFFFF)
+
+        raw_rows = b"".join(b"\x00" + pixels[i * row_size:(i + 1) * row_size] for i in range(h))
+        compressed = zlib.compress(raw_rows, 9)
+
+        png = (
+            b"\x89PNG\r\n\x1a\n"
+            + png_chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0))
+            + png_chunk(b"IDAT", compressed)
+            + png_chunk(b"IEND", b"")
+        )
+
+        nome_arquivo = f"{nome_duto.replace('/', '_')}.png"
+        caminho = FOTOS_DIR / nome_arquivo
+        FOTOS_DIR.mkdir(parents=True, exist_ok=True)
+        caminho.write_bytes(png)
+        print(f"[Câmera] Foto salva: {caminho}")
+        return nome_arquivo
+    except Exception as e:
+        print(f"[Câmera] Falha ao capturar foto: {e}")
+        return None
 
 
 class ControladorRobo:
@@ -234,6 +273,7 @@ def duto_bloqueado_routine(
     superior_handler,
     grafo,
     controlador,
+    camera_handle=None,
     passos_centralizacao=9,
     limite_passos_retorno=500,
 ):
@@ -253,6 +293,12 @@ def duto_bloqueado_routine(
         bueiro_anterior = None
 
     print(f"\n[Bloqueio] Frontal muito perto: duto bloqueado detectado em {duto_bloqueado}.")
+
+    # Tira foto antes de girar
+    if camera_handle is not None:
+        nome_foto = capturar_foto(sim, camera_handle, duto_bloqueado)
+        if nome_foto and duto_bloqueado in grafo.nos:
+            grafo.nos[duto_bloqueado]["foto"] = nome_foto
 
     # Marca o duto e a conexão de ida como bloqueados no grafo.
     if duto_bloqueado in grafo.grafo:
@@ -335,11 +381,18 @@ LIMIAR_BLOQUEIO_FRONTAL = 0.40
 prox_superior_path = "/Cuboid/proximidade_superior"
 prox_frontal_path = "/Cuboid/proximidade_frontal"
 
+camera_handle = None
 try:
     prox_superior_handle = sim.getObject(prox_superior_path)
     prox_frontal_handle = sim.getObject(prox_frontal_path)
 except Exception as e:
     print(f"Erro ao encontrar sensor: {e}")
+
+try:
+    camera_handle = sim.getObject("/Cuboid/camera_frontal")
+    print("[Câmera] Vision sensor encontrado.")
+except Exception as e:
+    print(f"[Câmera] Vision sensor não encontrado, fotos desativadas: {e}")
 
 coordenadas_bueiros = {}
 contador_bueiros = 1
@@ -399,6 +452,7 @@ try:
                     prox_superior_handle,
                     grafo,
                     controlador,
+                    camera_handle=camera_handle,
                 )
 
                 if bueiro_retorno is None:

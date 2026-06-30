@@ -98,6 +98,7 @@ class Grafo:
                     "id": no,
                     "status": dados.get("status", "desconhecido"),
                     "tipo": "duto" if "Duto" in str(no) else "bueiro",
+                    "foto": dados.get("foto"),
                 }
                 for no, dados in self.nos.items()
             ],
