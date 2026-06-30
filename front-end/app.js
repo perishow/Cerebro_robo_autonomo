@@ -7,11 +7,9 @@ const nodeCountEl = document.querySelector("#node-count");
 const edgeCountEl = document.querySelector("#edge-count");
 const visitedCountEl = document.querySelector("#visited-count");
 const toggleChromeBtn = document.querySelector("#toggle-chrome");
-const fotoPanel = document.querySelector("#foto-panel");
+const fotoTooltip = document.querySelector("#foto-tooltip");
 const fotoImg = document.querySelector("#foto-img");
 const fotoTitulo = document.querySelector("#foto-titulo");
-document.querySelector("#foto-fechar").addEventListener("click", () => fotoPanel.classList.add("hidden"));
-fotoPanel.addEventListener("click", (e) => { if (e.target === fotoPanel) fotoPanel.classList.add("hidden"); });
 
 const state = {
   nodes: new Map(),
@@ -25,11 +23,14 @@ const state = {
   lastPointer: null,
   initialized: false,
   chromeCollapsed: localStorage.getItem("chromeCollapsed") === "1",
+  graphSignature: null,
 };
 
 const GRID_STEP = 150;
 const ORIGIN_X = 420;
 const ORIGIN_Y = 280;
+const FOTO_TOOLTIP_GAP = 18;
+const FOTO_TOOLTIP_PADDING = 12;
 const FALLBACK_DIRECTIONS = [
   { x: 0, y: -1 },
   { x: -1, y: 0 },
@@ -130,6 +131,73 @@ function isDuto(id) {
 
 function isVisitadoStatus(status) {
   return String(status || "").trim().toLowerCase() === "visitado";
+}
+
+function caminhoFoto(nomeArquivo) {
+  return `/fotos/${encodeURIComponent(nomeArquivo)}?t=${Date.now()}`;
+}
+
+function fotoDoPipe(pipe) {
+  if (!pipe.duto) {
+    return null;
+  }
+
+  return state.rawGraph?.nos?.find((node) => node.id === pipe.duto && node.foto) || null;
+}
+
+function graphPointToScreen(point) {
+  const rect = svg.getBoundingClientRect();
+  return {
+    x: rect.left + state.offsetX + point.x * state.scale,
+    y: rect.top + state.offsetY + point.y * state.scale,
+  };
+}
+
+function clampTooltipPosition(x, y) {
+  const rect = fotoTooltip.getBoundingClientRect();
+  const maxX = window.innerWidth - rect.width - FOTO_TOOLTIP_PADDING;
+  const maxY = window.innerHeight - rect.height - FOTO_TOOLTIP_PADDING;
+
+  return {
+    x: Math.min(Math.max(x, FOTO_TOOLTIP_PADDING), Math.max(maxX, FOTO_TOOLTIP_PADDING)),
+    y: Math.min(Math.max(y, FOTO_TOOLTIP_PADDING), Math.max(maxY, FOTO_TOOLTIP_PADDING)),
+  };
+}
+
+function positionFotoTooltip(clientX, clientY) {
+  const rect = fotoTooltip.getBoundingClientRect();
+  let x = clientX + FOTO_TOOLTIP_GAP;
+  let y = clientY + FOTO_TOOLTIP_GAP;
+
+  if (x + rect.width + FOTO_TOOLTIP_PADDING > window.innerWidth) {
+    x = clientX - rect.width - FOTO_TOOLTIP_GAP;
+  }
+
+  if (y + rect.height + FOTO_TOOLTIP_PADDING > window.innerHeight) {
+    y = clientY - rect.height - FOTO_TOOLTIP_GAP;
+  }
+
+  const position = clampTooltipPosition(x, y);
+  fotoTooltip.style.left = `${position.x}px`;
+  fotoTooltip.style.top = `${position.y}px`;
+}
+
+function showFotoTooltip(pipe, fotoNo, event = null) {
+  fotoTitulo.textContent = `Obstrução em ${fotoNo.id}`;
+  fotoImg.src = caminhoFoto(fotoNo.foto);
+  fotoTooltip.classList.remove("hidden");
+
+  if (event) {
+    positionFotoTooltip(event.clientX, event.clientY);
+    return;
+  }
+
+  const point = graphPointToScreen(pipeLabelPoint(pipe));
+  positionFotoTooltip(point.x, point.y);
+}
+
+function hideFotoTooltip() {
+  fotoTooltip.classList.add("hidden");
 }
 
 toggleChromeBtn.addEventListener("click", () => {
@@ -313,7 +381,15 @@ async function fetchGraph() {
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
-    applyGraph(await response.json());
+    const graph = await response.json();
+    const graphSignature = JSON.stringify(graph);
+    if (graphSignature !== state.graphSignature) {
+      state.graphSignature = graphSignature;
+      applyGraph(graph);
+      return;
+    }
+
+    statusEl.textContent = "Recebendo dados de /api/grafo";
   } catch (error) {
     statusEl.textContent = `Sem conexao com o cerebro: ${error.message}`;
   }
@@ -340,15 +416,16 @@ function render() {
     group.append(pipeInner);
 
     if (bloqueado) {
-      const fotoNo = state.rawGraph?.nos?.find((n) => n.id === pipe.duto && n.foto);
+      const fotoNo = fotoDoPipe(pipe);
       if (fotoNo) {
-        group.classList.add("pipe-clicavel");
-        group.addEventListener("click", (e) => {
-          e.stopPropagation();
-          fotoTitulo.textContent = `Obstrução em ${fotoNo.id}`;
-          fotoImg.src = `/fotos/${fotoNo.foto}?t=${Date.now()}`;
-          fotoPanel.classList.remove("hidden");
-        });
+        group.classList.add("pipe-com-foto");
+        group.setAttribute("tabindex", "0");
+        group.setAttribute("aria-label", `Mostrar foto da obstrução em ${fotoNo.id}`);
+        group.addEventListener("pointerenter", (event) => showFotoTooltip(pipe, fotoNo, event));
+        group.addEventListener("pointermove", (event) => positionFotoTooltip(event.clientX, event.clientY));
+        group.addEventListener("pointerleave", hideFotoTooltip);
+        group.addEventListener("focus", () => showFotoTooltip(pipe, fotoNo));
+        group.addEventListener("blur", hideFotoTooltip);
       }
     }
 
@@ -416,11 +493,6 @@ function pipeLabelPoint(pipe) {
   };
 }
 
-function tick() {
-  render();
-  requestAnimationFrame(tick);
-}
-
 function svgPoint(event) {
   const rect = svg.getBoundingClientRect();
   return {
@@ -442,6 +514,7 @@ function startNodeDrag(event, node) {
 }
 
 svg.addEventListener("pointerdown", (event) => {
+  hideFotoTooltip();
   state.panning = true;
   state.lastPointer = { x: event.clientX, y: event.clientY };
   svg.setPointerCapture(event.pointerId);
@@ -472,6 +545,7 @@ svg.addEventListener("pointerup", () => {
 
 svg.addEventListener("wheel", (event) => {
   event.preventDefault();
+  hideFotoTooltip();
   const rect = svg.getBoundingClientRect();
   const before = {
     x: (event.clientX - rect.left - state.offsetX) / state.scale,
@@ -517,4 +591,3 @@ document.querySelector("#reset-pins").addEventListener("click", () => {
 
 fetchGraph();
 setInterval(fetchGraph, 600);
-requestAnimationFrame(tick);

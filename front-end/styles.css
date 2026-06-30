@@ -268,62 +268,51 @@ button:hover {
   pointer-events: none;
 }
 
-/* Painel de foto de bloqueio */
-.foto-panel {
+/* Tooltip de foto de bloqueio */
+.foto-tooltip {
   position: fixed;
-  inset: 0;
   z-index: 100;
-  background: rgb(0 0 0 / 0.55);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  transform: translateZ(0);
 }
 
-.foto-panel.hidden {
+.foto-tooltip.hidden {
   display: none;
 }
 
-.foto-panel-inner {
-  position: relative;
+.foto-tooltip-inner {
   background: var(--panel);
-  border-radius: 12px;
-  padding: 24px;
-  max-width: 520px;
-  width: 90%;
-  box-shadow: 0 8px 32px rgb(0 0 0 / 0.28);
+  border: 1px solid rgb(180 35 24 / 0.24);
+  border-radius: 10px;
+  padding: 10px;
+  width: min(260px, calc(100vw - 24px));
+  box-shadow: 0 12px 30px rgb(16 24 40 / 0.24);
 }
 
-.foto-panel-inner h3 {
-  margin: 0 0 14px;
-  font-size: 15px;
+.foto-tooltip-inner h3 {
+  margin: 0 0 8px;
+  font-size: 13px;
   color: var(--bloqueada);
 }
 
-.foto-panel-inner img {
+.foto-tooltip-inner img {
   width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
   border-radius: 8px;
   border: 1px solid var(--border);
   display: block;
 }
 
-.foto-fechar {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  border-radius: 50%;
-  font-size: 14px;
-  line-height: 1;
+/* Dutos com foto mostram a imagem ao passar o mouse */
+.pipe-com-foto {
+  cursor: help;
 }
 
-/* Dutos com foto ficam clicáveis no SVG */
-.pipe-clicavel {
-  cursor: pointer;
-}
-
-.pipe-clicavel:hover .edge-pipe-inner {
+.pipe-com-foto:hover .edge-pipe-inner,
+.pipe-com-foto:focus .edge-pipe-inner {
   stroke-width: 24;
 }
 
