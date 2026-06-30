@@ -376,7 +376,7 @@ bueiro_ja_conhecido = False
 grafo = Grafo()
 bloqueio_frontal_consecutivo = 0
 # Ajuste este valor para mudar a distância máxima que caracteriza bloqueio no duto.
-LIMIAR_BLOQUEIO_FRONTAL = 0.40
+LIMIAR_BLOQUEIO_FRONTAL = 2
 
 prox_superior_path = "/Cuboid/proximidade_superior"
 prox_frontal_path = "/Cuboid/proximidade_frontal"
