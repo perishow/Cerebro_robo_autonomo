@@ -189,3 +189,7 @@ motor_grafo/
 front-end/                          # interface de visualização
 simulacao/                          # cenas do CoppeliaSim
 ```
+
+## Vídeos de demonstração
+
+O diretório [`videos/`](videos/) contém vídeos que demonstram a execução do robô.
